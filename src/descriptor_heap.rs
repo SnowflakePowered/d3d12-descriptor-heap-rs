@@ -320,34 +320,31 @@ impl<T> D3D12DescriptorHeap<T> {
 
         let inner = &self.0;
         let start = inner.start.load(Ordering::Acquire);
-        for i in start..inner.num_descriptors {
-            if !inner.map[i] {
-                inner.map.set_aliased(i, true);
-                handle.ptr = inner.cpu_start.ptr + (i * inner.handle_size);
-                inner.start.store(i + 1, Ordering::Release);
+        let Some(i) = inner.map.iter_zeros().skip_while(|&i| i < start).next() else {
+            return Err(D3D12DescriptorHeapError::HeapOverflow(
+                inner.num_descriptors,
+            ))
+        };
 
-                let gpu_handle = inner
-                    .gpu_start
-                    .map(|gpu_start| D3D12_GPU_DESCRIPTOR_HANDLE {
-                        ptr: (handle.ptr as u64 - inner.cpu_start.ptr as u64) + gpu_start.ptr,
-                    });
+        inner.map.set_aliased(i, true);
+        handle.ptr = inner.cpu_start.ptr + (i * inner.handle_size);
+        inner.start.store(i + 1, Ordering::Release);
 
-                return Ok(D3D12DescriptorHeapSlot(Arc::new(
-                    D3D12DescriptorHeapSlotInner {
-                        cpu_handle: handle,
-                        slot: i,
-                        heap: Arc::clone(&self.0),
-                        gpu_handle,
-                        _pd: Default::default(),
-                    },
-                )));
-            }
-        }
+        let gpu_handle = inner
+            .gpu_start
+            .map(|gpu_start| D3D12_GPU_DESCRIPTOR_HANDLE {
+                ptr: (handle.ptr as u64 - inner.cpu_start.ptr as u64) + gpu_start.ptr,
+            });
 
-        // overflow
-        Err(D3D12DescriptorHeapError::HeapOverflow(
-            inner.num_descriptors,
-        ))
+        Ok(D3D12DescriptorHeapSlot(Arc::new(
+            D3D12DescriptorHeapSlotInner {
+                cpu_handle: handle,
+                slot: i,
+                heap: Arc::clone(&self.0),
+                gpu_handle,
+                _pd: Default::default(),
+            },
+        )))
     }
 
     /// Allocate a range of descriptors.

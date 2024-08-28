@@ -89,12 +89,12 @@ impl<T> AsRef<D3D12_CPU_DESCRIPTOR_HANDLE> for D3D12DescriptorHeapSlot<T> {
 }
 
 impl<T: D3D12ShaderVisibleDescriptorHeapType> AsRef<D3D12_GPU_DESCRIPTOR_HANDLE>
-    for D3D12DescriptorHeapSlotInner<T>
+    for D3D12DescriptorHeapSlot<T>
 {
     fn as_ref(&self) -> &D3D12_GPU_DESCRIPTOR_HANDLE {
         // SAFETY: D3D12ShaderVisibleHeapType must have a GPU handle, because it's
         // D3D12ShaderVisibleDescriptorHeapType.
-        unsafe { self.gpu_handle.as_ref().unwrap_unchecked() }
+        unsafe { self.0.gpu_handle.as_ref().unwrap_unchecked() }
     }
 }
 
@@ -286,7 +286,6 @@ impl<T> D3D12PartitionableHeap<T> {
         self.0
     }
 }
-
 
 impl<T: D3D12DescriptorHeapType> D3D12DescriptorHeap<T> {
     /// Create a new heap for the specified heap type

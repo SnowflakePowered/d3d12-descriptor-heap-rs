@@ -1,0 +1,25 @@
+[package]
+name = "d3d12-descriptor-heap"
+version = "0.1.0"
+edition = "2021"
+
+license = "MIT OR Apache-2.0"
+authors = ["Ronny Chan <ronny@ronnychan.ca>"]
+description = "Descriptor heap allocator for Direct3D 12"
+categories = ["rendering", "rendering::graphics-api"]
+repository = "https://github.com/SnowflakePowered/d3d12-descriptor-heap-rs"
+keywords = ["d3d12", "heap", "allocator"]
+
+[dependencies]
+bitvec = "1.0.1"
+array-init = "2.1.0"
+thiserror = "1.0.63"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.58.0"
+features = [
+    "Win32_Graphics_Direct3D12",
+]
+
+[package.metadata.docs.rs]
+targets = [ "x86_64-pc-windows-msvc" ]

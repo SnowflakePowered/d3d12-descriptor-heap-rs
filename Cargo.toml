@@ -1,6 +1,6 @@
 [package]
 name = "d3d12-descriptor-heap"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 
 license = "MIT OR Apache-2.0"
@@ -9,11 +9,17 @@ description = "Descriptor heap allocator for Direct3D 12"
 categories = ["rendering", "rendering::graphics-api"]
 repository = "https://github.com/SnowflakePowered/d3d12-descriptor-heap-rs"
 keywords = ["d3d12", "heap", "allocator"]
+readme = "README.md"
 
 [dependencies]
 bitvec = "1.0.1"
 array-init = "2.1.0"
 thiserror = "1.0.63"
+triomphe = {  version = "0.1.13", optional = true }
+
+[features]
+default = ["triomphe"]
+triomphe = [ "dep:triomphe"]
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.58.0"

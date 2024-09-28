@@ -4,7 +4,12 @@ use bitvec::order::Lsb0;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(not(feature = "triomphe"))]
 use std::sync::Arc;
+
+#[cfg(feature = "triomphe")]
+use triomphe::Arc;
 
 use windows::Win32::Graphics::Direct3D12::{
     ID3D12DescriptorHeap, ID3D12Device, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_DESC,
@@ -117,6 +122,15 @@ struct D3D12DescriptorHeapInner {
     map: BitBox<AtomicUsize>,
 }
 
+#[cfg(not(feature = "triomphe"))]
+struct D3D12UniqueDescriptorHeap<T>(Arc<D3D12DescriptorHeapInner>, PhantomData<T>);
+
+#[cfg(feature = "triomphe")]
+struct D3D12UniqueDescriptorHeap<T>(
+    triomphe::UniqueArc<D3D12DescriptorHeapInner>,
+    PhantomData<T>,
+);
+
 /// An descriptor heap.
 pub struct D3D12DescriptorHeap<T>(Arc<D3D12DescriptorHeapInner>, PhantomData<T>);
 
@@ -132,7 +146,7 @@ pub struct D3D12PartitionedHeap<T> {
 /// A descriptor heap that can be partitioned into a reserved chunk, and then
 /// chunks of equal size.
 #[repr(transparent)]
-pub struct D3D12PartitionableHeap<T>(D3D12DescriptorHeap<T>);
+pub struct D3D12PartitionableHeap<T>(D3D12UniqueDescriptorHeap<T>);
 
 impl<T: D3D12DescriptorHeapType> D3D12PartitionableHeap<T> {
     /// Create a new partitionable heap for the specified heap type
@@ -161,8 +175,14 @@ impl<T> D3D12PartitionableHeap<T> {
                 None
             };
 
-            Ok(D3D12PartitionableHeap(D3D12DescriptorHeap(
-                Arc::new(D3D12DescriptorHeapInner {
+            #[cfg(not(feature = "triomphe"))]
+            type UniqueArc<T> = std::sync::Arc<T>;
+
+            #[cfg(feature = "triomphe")]
+            use triomphe::UniqueArc;
+
+            Ok(D3D12PartitionableHeap(D3D12UniqueDescriptorHeap(
+                UniqueArc::new(D3D12DescriptorHeapInner {
                     device: device.clone(),
                     heap,
                     ty: desc.Type,
@@ -193,15 +213,20 @@ impl<T> D3D12PartitionableHeap<T> {
         reserved: usize,
     ) -> Result<D3D12PartitionedHeap<T>, D3D12DescriptorHeapError> {
         // has to be called right after creation.
+        #[cfg(not(feature = "triomphe"))]
         assert_eq!(
             Arc::strong_count(&self.0 .0),
             1,
             "A D3D12PartionableHeap can only be partitioned immediately after creation."
         );
 
+        #[cfg(not(feature = "triomphe"))]
         let Ok(inner) = Arc::try_unwrap(self.0 .0) else {
             unreachable!("A D3D12PartionableHeap should have no live descriptors.")
         };
+
+        #[cfg(feature = "triomphe")]
+        let inner = triomphe::UniqueArc::into_inner(self.0 .0);
 
         let num_descriptors = inner.num_descriptors - reserved;
 
@@ -283,7 +308,11 @@ impl<T> D3D12PartitionableHeap<T> {
     /// A descriptor heap can only be partitioned immediately after creation.
     /// Once the entire heap is claimed, it can never be partitioned again.
     pub fn into_heap(self) -> D3D12DescriptorHeap<T> {
-        self.0
+        #[cfg(not(feature = "triomphe"))]
+        return D3D12DescriptorHeap(self.0 .0, self.0 .1);
+
+        #[cfg(feature = "triomphe")]
+        return D3D12DescriptorHeap(self.0 .0.shareable(), self.0 .1);
     }
 }
 
@@ -323,7 +352,7 @@ impl<T> D3D12DescriptorHeap<T> {
         let Some(i) = inner.map.iter_zeros().skip_while(|&i| i < start).next() else {
             return Err(D3D12DescriptorHeapError::HeapOverflow(
                 inner.num_descriptors,
-            ))
+            ));
         };
 
         inner.map.set_aliased(i, true);

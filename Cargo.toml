@@ -1,6 +1,6 @@
 [package]
 name = "d3d12-descriptor-heap"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ readme = "README.md"
 [dependencies]
 bitvec = "1.0.1"
 array-init = "2.1.0"
-thiserror = "1.0.63"
+thiserror = "2.0.17"
 triomphe = {  version = "0.1.13", optional = true }
 
 [features]
@@ -22,7 +22,7 @@ default = ["triomphe"]
 triomphe = [ "dep:triomphe"]
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58.0"
+version = ">=0.58, <=0.62"
 features = [
     "Win32_Graphics_Direct3D12",
 ]
